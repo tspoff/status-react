@@ -38,7 +38,7 @@ services:
       - "-log=DEBUG"
     ports:
       - 8080
-      - 8545
+      - 8545:8545
       - 30303
     depends_on:
       - bootnode

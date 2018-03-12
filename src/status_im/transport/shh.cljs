@@ -119,6 +119,16 @@
                      (on-success resp)
                      (on-error err))))))
 
+(defn create-and-get-sym-key [{:keys [web3 on-success]}]
+  (new-sym-key {:web3       web3
+                :on-success (fn [sym-key-id]
+                              (get-sym-key {:web3       web3
+                                            :sym-key-id sym-key-id
+                                            :on-success (fn [sym-key]
+                                                          (on-success sym-key sym-key-id))
+                                            :on-error   log-error}))
+                :on-error   log-error}))
+
 (defn log-error [error]
   (log/error :shh/get-new-sym-key-error error))
 
@@ -145,15 +155,8 @@
 
 (re-frame/reg-fx
   :shh/get-new-sym-key
-  (fn [{:keys [web3 on-success]}]
-    (new-sym-key {:web3       web3
-                  :on-success (fn [sym-key-id]
-                                (get-sym-key {:web3       web3
-                                              :sym-key-id sym-key-id
-                                              :on-success (fn [sym-key]
-                                                            (on-success sym-key sym-key-id))
-                                              :on-error   log-error}))
-                  :on-error   log-error})))
+  (fn [params]
+    (create-and-get-sym-key (select-keys params [:web3 :on-success]))))
 
 (re-frame/reg-fx
   :shh/generate-sym-key-from-password

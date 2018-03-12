@@ -1,4 +1,4 @@
-(ns status-im.test.protocol.core
+(ns status-im.cli.core
   (:require [cljs.test :refer-macros [deftest is testing async ]]
             [cljs.nodejs :as nodejs]
             re-frame.db
@@ -19,6 +19,9 @@
 ;; NOTE(oskarth): All these tests are evaluated in NodeJS
 
 (nodejs/enable-util-print!)
+
+(def ^:dynamic *message* "normal message")
+(def atom-message (atom "normal message"))
 
 (def contact-whisper-identity "0x048f7d5d4bda298447bbb5b021a34832509bd1a8dbe4e06f9b7223d00a59b6dc14f6e142b21d3220ceb3155a6d8f40ec115cd96394d3cc7c55055b433a1758dc74")
 (def rpc-url (aget nodejs/process.env "WNODE_ADDRESS"))
@@ -51,32 +54,17 @@
         (reset! re-frame.db/app-db {:web3 web3
                                     :accounts/accounts {to-address
                                                         {:name "To name"
-                                                            :address to-address
-                                                            :photo-path "none"
-                                                            :signing-phrase "test"
-                                                            :public-key to-pk}}
-                                    :current-public-key to})
+                                                         :address to-address
+                                                         :photo-path "none"
+                                                         :signing-phrase "test"
+                                                         :public-key to-pk}}
+                                    :current-public-key to-pk})
 
         (rf/dispatch [:initialize-protocol to-address rpc-url])
-        (rf/dispatch [:open-chat-with-contact {:whisper-identity from}])
+        (rf/dispatch [:open-chat-with-contact {:whisper-identity contact-code}])
         (rf-test/wait-for [::transport.contact/send-new-sym-key]
-          (swap! re-frame.db/app-db assoc :current-public-key from)
-
-          (rf/dispatch [:initialize-protocol from rpc-url])
-          (rf/dispatch [:open-chat-with-contact {:whisper-identity contact-code}])
-          (rf-test/wait-for [::transport.contact/send-new-sym-key]
-                            (doseq [i (range 200)]
-                              (rf/dispatch-sync [:set-chat-input-text (str "are we doing the test session?" i)])
-                              (rf/dispatch-sync [:send-current-message]))
-                            (rf-test/wait-for [:update-message-status :protocol/send-status-message-error]
-                                              (is true))))))))
-
-(deftest test-whisper-version!
-  (testing "Whisper version supported"
-    (async done
-           (let [web3 (make-web3)
-                 shh  (transport.utils/shh web3)]
-             (.version shh
-                       (fn [& args]
-                         (is (= "6.0" (second args)))
-                         (done)))))))
+                          (doseq [i (range 200)]
+                            (rf/dispatch-sync [:set-chat-input-text (str @atom-message  " " i)])
+                            (rf/dispatch-sync [:send-current-message]))
+                          (rf-test/wait-for [:update-message-status :protocol/send-status-message-error]
+                                            (is true)))))))

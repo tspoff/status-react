@@ -27,8 +27,11 @@
             "figwheel-repl"      ["with-profile" "+figwheel" "run" "-m" "clojure.main" "env/dev/run.clj"]
             "test-cljs"          ["with-profile" "test" "doo" "node" "test" "once"]
             "test-protocol"      ["with-profile" "test" "doo" "node" "protocol" "once"]
-            "test-env-dev-utils" ["with-profile" "test" "doo" "node" "env-dev-utils" "once"]}
-  :profiles {:dev      {:dependencies [[com.cemerick/piggieback "0.2.2"]]
+            "test-env-dev-utils" ["with-profile" "test" "doo" "node" "env-dev-utils" "once"]
+            "compile-cli-2"      ["with-profile" "test" "cljsbuild" "auto" "cli"]
+            "compile-cli"        ["with-profile" "test" "doo" "node" "cli" "once"]}
+  :profiles {:dev      {:dependencies [[day8.re-frame/test "0.1.5"]
+                                       [com.cemerick/piggieback "0.2.2"]]
                         :cljsbuild    {:builds
                                        {:ios
                                         {:source-paths ["components/src" "react-native/src" "src"]
@@ -57,13 +60,14 @@
                                         [re-frisk-sidecar "0.5.5"]
                                         [hawk "0.2.11"]]
                          :source-paths ["src" "env/dev" "react-native/src" "components/src"]}]
-             :test     {:dependencies [[day8.re-frame/test "0.1.5"]]
+             :test     {:dependencies [[lein-doo "0.1.10"]
+                                       [day8.re-frame/test "0.1.5"]]
                         :plugins      [[lein-doo "0.1.7"]]
                         :cljsbuild    {:builds
                                        [{:id           "test"
                                          :source-paths ["components/src" "src" "test/cljs"]
                                          :compiler     {:main          status-im.test.runner
-                                                        :output-to     "target/test/test.js"
+                                                        :output-to     "test.js"
                                                         :output-dir    "target/test"
                                                         :optimizations :none
                                                         :preamble      ["js/hook-require.js"]
@@ -71,16 +75,26 @@
                                         {:id           "protocol"
                                          :source-paths ["components/src" "src" "test/cljs"]
                                          :compiler     {:main             status-im.test.protocol.runner
-                                                        :output-to        "target/test/test.js"
-                                                        :output-dir       "target/test"
+                                                        :output-to        "test.js"
+                                                        :output-dir       "target/protocol"
                                                         :optimizations    :none
                                                         :preamble         ["js/hook-require.js"]
                                                         :target           :nodejs}}
+                                        {:id "cli"
+                                         :source-paths ["components/src" "src" "cli" "test/cljs"]
+                                         :compiler     {:main          status-im.cli.runner
+                                                        :output-to     "cli.js"
+                                                        :output-dir    "target/cli"
+                                                        :optimizations :none
+                                                        :preamble      ["js/hook-require.js"]
+                                                        :target        :nodejs
+                                                        :pretty-print  true}}
+
                                         {:id           "env-dev-utils"
                                          :source-paths ["env/dev/env/utils.cljs" "test/env/dev"]
                                          :compiler     {:main          env.test.runner
-                                                        :output-to     "target/test/test.js"
-                                                        :output-dir    "target/test"
+                                                        :output-to     "test.js"
+                                                        :output-dir    "target/test-utils"
                                                         :optimizations :none
                                                         :target        :nodejs}}]}}
              :prod     {:cljsbuild {:builds
