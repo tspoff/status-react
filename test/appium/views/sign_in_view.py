@@ -97,7 +97,7 @@ class SignInView(BaseView):
         self.name_input = NameInput(self.driver)
         self.do_not_share = DonNotShare(self.driver)
 
-    def create_user(self):
+    def create_user(self, username: str='user_%s' % get_current_time()):
         time.sleep(30) # wait for "Shake to provide your feedback" popup to disappear, it's not possible to interact with the element
         self.create_account_button.click()
         self.password_input.set_value('qwerty1234')
@@ -105,7 +105,7 @@ class SignInView(BaseView):
         self.confirm_password_input.set_value('qwerty1234')
         self.next_button.click()
         self.name_input.wait_for_element(45)
-        self.name_input.set_value('user_%s' % get_current_time())
+        self.name_input.set_value(username)
         self.next_button.click()
         self.do_not_share.wait_for_element(10)
         self.do_not_share.click_until_presence_of_element(self.home_button)
