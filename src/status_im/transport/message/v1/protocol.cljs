@@ -10,7 +10,7 @@
             [status-im.transport.utils :as transport.utils]))
 
 (def ^:private whisper-opts
-  {:ttl       10 ;; ttl of 10 sec
+  {:ttl       1 ;; ttl of 10 sec
    :powTarget config/pow-target
    :powTime   config/pow-time})
 
