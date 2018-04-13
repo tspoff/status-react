@@ -6,7 +6,9 @@
             [status-im.transport.utils :as web3.utils]
             [status-im.utils.config :as config]
             [taoensso.timbre :as log]
-            [status-im.utils.ethereum.core :as ethereum]))
+            [status-im.utils.ethereum.core :as ethereum]
+            [status-im.utils.utils :as utils]
+            [status-im.i18n :as i18n]))
 
 (defn- parse-json
   ;; NOTE(dmitryn) Expects JSON response like:
@@ -48,8 +50,10 @@
   [{:keys [db]}]
   (when config/offline-inbox-enabled?
     (let [wnode (get-current-wnode-address db)]
-      (log/info "offline inbox: initialize")
-      {::add-peer {:wnode wnode}})))
+      (log/info "offline inbox: initialize " wnode)
+      (when (and wnode
+                 (:accounts/current-account-id db))
+        {::add-peer {:wnode wnode}}))))
 
 (defn add-peer [enode success-fn error-fn]
   (status/add-peer enode (response-handler error-fn success-fn)))
@@ -155,7 +159,9 @@
           (log/info "Peer" wnode "is not registered. Retrying fetch peers.")
           (let [delay (if (< retries 3) 300 5000)]
             (if (> retries 10)
-              (log/error "Could not connect to mailserver")
+              (do (log/error :mailserver-connection-error)
+                  (utils/show-popup (i18n/label :t/error)
+                                    (i18n/label :t/mailserver-connection-error)))
               {:dispatch-later [{:ms delay :dispatch [::fetch-peers (inc retries)]}]})))))))
 
 (handlers/register-handler-fx
