@@ -14,10 +14,9 @@
             [day8.re-frame.test :refer-macros [run-test-async run-test-sync] :as rf-test]
             [status-im.transport.message.v1.contact :as transport.contact]))
 
-(def rpc-url (aget nodejs/process.env "WNODE_ADDRESS"))
 
 (def Web3 (js/require "web3"))
-(defn- make-web3 []
+(defn- make-web3 [rpc-url]
   (Web3. (Web3.providers.HttpProvider. rpc-url)))
 
 (defn- add-sym-key-sync
@@ -39,6 +38,13 @@
   (let [resp (.. web3
                  -shh
                  (getSymKey sym-key-id))]
+    (on-success resp)))
+
+(defn generate-sym-key-from-password-sync
+  [{:keys [web3 password on-success on-error]}]
+  (let [resp (.. web3
+                 -shh
+                 (generateSymKeyFromPassword password))]
     (on-success resp)))
 
 (defn- post-message-sync
@@ -70,26 +76,29 @@
     (str text " " counter)
     text))
 
-(defn send [to {:keys [count
-                       message
-                       from
-                       rpc-url
-                       append-counter?]
-                :as opts
-                :or {message "test"
-                     count 1
-                     rpc-url "http://localhost:8545"
-                     append-counter? true}}]
-  (let [web3          (make-web3)
+(defn send [{:keys [count
+                    message
+                    receiver
+                    public-chat
+                    from
+                    rpc-url
+                    append-counter?]
+             :as opts
+             :or {message "test"
+                  count 1
+                  rpc-url "http://localhost:8545"
+                  append-counter? true}}]
+  (let [web3          (make-web3 rpc-url)
         from-pk       (create-keys (transport.utils/shh web3))
         from-address  (str "0x" (utils.contacts/public-key->address from-pk))]
     (run-test-sync
       (with-redefs [transport.shh/add-sym-key add-sym-key-sync
                     transport.shh/get-sym-key get-sym-key-sync
+                    transport.shh/generate-sym-key-from-password generate-sym-key-from-password-sync
                     transport.shh/post-message post-message-sync
                     transport.shh/new-sym-key new-sym-key-sync]
         (stub-data-store!)
-        (inject-web3! (make-web3))
+        (inject-web3! (make-web3 rpc-url))
 
         (rf/dispatch [:initialize-db])
 
@@ -102,8 +111,11 @@
                                     :current-public-key from-pk})
 
         (rf/dispatch [:initialize-protocol from-address rpc-url])
-        (rf/dispatch [:open-chat-with-contact {:whisper-identity to}])
+        (cond
+          public-chat (rf/dispatch [:create-new-public-chat public-chat])
+          receiver     (rf/dispatch [:open-chat-with-contact {:whisper-identity receiver}]))
         (doseq [i (range count)]
+          (println @re-frame.db/app-db)
           (rf/dispatch [:set-chat-input-text (build-message message i opts)])
           (rf/dispatch [:send-current-message]))
         (nodejs/process.exit 0)))))
