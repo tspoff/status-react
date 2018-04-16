@@ -80,6 +80,8 @@
                     message
                     receiver
                     public-chat
+                    group-chat
+                    members
                     from
                     rpc-url
                     append-counter?]
@@ -110,12 +112,17 @@
                                                          :public-key from-pk}}
                                     :current-public-key from-pk})
 
+
         (rf/dispatch [:initialize-protocol from-address rpc-url])
         (cond
-          public-chat (rf/dispatch [:create-new-public-chat public-chat])
+          group-chat   (do
+                         (doseq [m members]
+                           (rf/dispatch [:open-chat-with-contact {:whisper-identity m}])
+                           (rf/dispatch [:select-contact m]))
+                         (rf/dispatch [:create-new-group-chat-and-open group-chat]))
+          public-chat  (rf/dispatch [:create-new-public-chat public-chat])
           receiver     (rf/dispatch [:open-chat-with-contact {:whisper-identity receiver}]))
         (doseq [i (range count)]
-          (println @re-frame.db/app-db)
           (rf/dispatch [:set-chat-input-text (build-message message i opts)])
           (rf/dispatch [:send-current-message]))
         (nodejs/process.exit 0)))))
