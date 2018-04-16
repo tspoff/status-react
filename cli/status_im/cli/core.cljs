@@ -7,6 +7,7 @@
             [status-im.utils.contacts :as utils.contacts]
             [status-im.transport.shh :as transport.shh]
             [re-frame.core :as rf]
+            status-im.ui.screens.events
             [status-im.transport.message.core :as transport.message]
             [cljs.core.async :as async]
             [status-im.transport.utils :as transport.utils]
@@ -69,14 +70,14 @@
     (str text " " counter)
     text))
 
-(defn send [to {:keys [number-of-messages
+(defn send [to {:keys [count
                        message
                        from
                        rpc-url
                        append-counter?]
                 :as opts
                 :or {message "test"
-                     number-of-messages 1
+                     count 1
                      rpc-url "http://localhost:8545"
                      append-counter? true}}]
   (let [web3          (make-web3)
@@ -102,7 +103,7 @@
 
         (rf/dispatch [:initialize-protocol from-address rpc-url])
         (rf/dispatch [:open-chat-with-contact {:whisper-identity to}])
-        (doseq [i (range number-of-messages)]
+        (doseq [i (range count)]
           (rf/dispatch [:set-chat-input-text (build-message message i opts)])
           (rf/dispatch [:send-current-message]))
         (nodejs/process.exit 0)))))

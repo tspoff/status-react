@@ -11,6 +11,10 @@
   [["-m" "--message MESSAGE" "The message to send"
     :default "test message"
     :validate [(complement string/blank?) "Can't be a blank string"]]
+   ["-c" "--count COUNT" "The number of messages to send"
+    :default 1
+    :parse-fn #(js/parseInt %)
+    :validate [#(< 0 % 10000) "Must be between 0 and 10000"]]
    ;; A boolean option defaulting to nil
    ["-h" "--help"]])
 
