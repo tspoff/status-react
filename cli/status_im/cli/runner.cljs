@@ -1,22 +1,22 @@
 (ns status-im.cli.runner
-  (:require [doo.runner :refer-macros [doo-tests]]
+  (:require [clojure.string :as string]
+            [clojure.tools.cli :as cli]
             [cljs.test]
             [status-im.cli.core :as core]))
 
 (enable-console-print!)
 
-;; Or doo will exit with an error, see:
-;; https://github.com/bensu/doo/issues/83#issuecomment-165498172
-(set! (.-error js/console) (fn [x] (.log js/console x)))
+(def cli-options
+  ;; An option with a required argument
+  [["-m" "--message MESSAGE" "The message to send"
+    :default "test message"
+    :validate [(complement string/blank?) "Can't be a blank string"]]
+   ;; A boolean option defaulting to nil
+   ["-h" "--help"]])
 
-(set! goog.DEBUG false)
-
-(println "OUTSIDE MAIN")
+(def contact-code "0x044adb23f4e1fa51b2f21895442d1194165e08a0e60709b2d564d7d879a1ca6ba363ec79fe5ef0d683689aa1ecdb876a12675ef768d27229ca7f7ca10d937a07f3")
 (defn -main [& args]
-  (println "IN UNNER MAIN" args)
-  (binding [status-im.cli.core/*message* "test message"]
-    (reset! status-im.cli.core/atom-message "test message")
-    (println "MESSAGE" status-im.cli.core/*message*)
-    (cljs.test/run-tests 'status-im.cli.core)))
+  (let [{:keys [options] :as all} (cli/parse-opts args cli-options)]
+    (core/send contact-code options)))
 
 (set! *main-cli-fn* -main)

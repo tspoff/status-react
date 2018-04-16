@@ -28,8 +28,8 @@
             "test-cljs"          ["with-profile" "test" "doo" "node" "test" "once"]
             "test-protocol"      ["with-profile" "test" "doo" "node" "protocol" "once"]
             "test-env-dev-utils" ["with-profile" "test" "doo" "node" "env-dev-utils" "once"]
-            "compile-cli-2"      ["with-profile" "test" "cljsbuild" "auto" "cli"]
-            "compile-cli"        ["with-profile" "test" "doo" "node" "cli" "once"]}
+            "compile-cli-2"      ["with-profile" "cli" "cljsbuild" "auto" "cli"]
+            "compile-cli"        ["with-profile" "cli" "cljsbuild" "once" "cli"]}
   :profiles {:dev      {:dependencies [[day8.re-frame/test "0.1.5"]
                                        [com.cemerick/piggieback "0.2.2"]]
                         :cljsbuild    {:builds
@@ -60,6 +60,18 @@
                                         [re-frisk-sidecar "0.5.5"]
                                         [hawk "0.2.11"]]
                          :source-paths ["src" "env/dev" "react-native/src" "components/src"]}]
+             :cli      {:dependencies [[org.clojure/tools.cli "0.3.6"]
+                                       [day8.re-frame/test "0.1.5"]]
+                        :cljsbuild    {:builds
+                                       [{:id "cli"
+                                         :source-paths ["components/src" "src" "cli"]
+                                         :compiler     {:main          status-im.cli.runner
+                                                        :output-to     "target/cli/cli.js"
+                                                        :output-dir    "target/cli"
+                                                        :optimizations :simple
+                                                        :preamble      ["js/cli.js"]
+                                                        :target        :nodejs
+                                                        :pretty-print  true}}]}}
              :test     {:dependencies [[lein-doo "0.1.10"]
                                        [day8.re-frame/test "0.1.5"]]
                         :plugins      [[lein-doo "0.1.7"]]
@@ -80,16 +92,6 @@
                                                         :optimizations    :none
                                                         :preamble         ["js/hook-require.js"]
                                                         :target           :nodejs}}
-                                        {:id "cli"
-                                         :source-paths ["components/src" "src" "cli" "test/cljs"]
-                                         :compiler     {:main          status-im.cli.runner
-                                                        :output-to     "cli.js"
-                                                        :output-dir    "target/cli"
-                                                        :optimizations :none
-                                                        :preamble      ["js/hook-require.js"]
-                                                        :target        :nodejs
-                                                        :pretty-print  true}}
-
                                         {:id           "env-dev-utils"
                                          :source-paths ["env/dev/env/utils.cljs" "test/env/dev"]
                                          :compiler     {:main          env.test.runner

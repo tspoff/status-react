@@ -55,7 +55,7 @@
                                                             :photo-path "none"
                                                             :signing-phrase "test"
                                                             :public-key to-pk}}
-                                    :current-public-key to})
+                                    :current-public-key to-pk})
 
         (rf/dispatch [:initialize-protocol to-address rpc-url])
         (rf/dispatch [:open-chat-with-contact {:whisper-identity from}])
