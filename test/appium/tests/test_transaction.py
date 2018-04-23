@@ -1,10 +1,12 @@
-import pytest
 import time
-from tests.base_test_case import SingleDeviceTestCase, MultipleDeviceTestCase
-from tests import transaction_users, api_requests, get_current_time, transaction_users_wallet
+
+import pytest
 from selenium.common.exceptions import TimeoutException
 
+from tests import transaction_users, api_requests, get_current_time, transaction_users_wallet
+from tests.base_test_case import SingleDeviceTestCase, MultipleDeviceTestCase
 from views.sign_in_view import SignInView
+from views.web_views.web_view_utils import is_web_view_opened
 
 
 @pytest.mark.all
@@ -150,6 +152,22 @@ class TestTransaction(SingleDeviceTestCase):
         api_requests.verify_balance_is_updated(initial_balance_recipient, recipient['address'])
         transactions_view.history_tab.click()
         transactions_view.transactions_table.find_transaction(amount=amount)
+
+    @pytest.mark.transactions
+    @pytest.mark.testrail_case_id(3422)
+    def test_open_transaction_on_etherscan(self):
+        user = transaction_users['A_USER']
+        sign_in_view = SignInView(self.driver)
+        sign_in_view.recover_access(user['passphrase'], user['password'])
+        home_view = sign_in_view.get_home_view()
+        wallet_view = home_view.wallet_button.click()
+        transactions_view = wallet_view.transactions_button.click()
+        transaction_details = transactions_view.transactions_table.get_first_transaction().click()
+        time.sleep(3) # Wait for transaction details screen to appear
+        transaction_details.options_button.click()
+        transaction_details.open_transaction_on_etherscan_button.click()
+        time.sleep(10) # Wait for external browser to appear
+        assert is_web_view_opened(self.driver)
 
     @pytest.mark.pr
     def test_send_stt_from_wallet_via_enter_recipient_address(self):
