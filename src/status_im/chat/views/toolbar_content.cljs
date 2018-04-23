@@ -5,6 +5,7 @@
             [status-im.ui.components.react :as react]
 
             [status-im.i18n :as i18n]
+            [status-im.chat.views.photos :as photos]
             [status-im.chat.styles.screen :as st]
             [status-im.utils.datetime :as time]
             [status-im.utils.platform :refer [platform-specific]]
@@ -64,9 +65,11 @@
                     contacts public? public-key]} [:get-current-chat]
             show-actions?                         [:get-current-chat-ui-prop :show-actions?]
             accounts                              [:get-accounts]
-            contact                               [:get-current-chat-contact] 
+            contact                               [:get-current-chat-contact]
             sync-state                            [:sync-state]]
-    [react/view common.styles/flex
+    [react/view {:style st/toolbar-container}
+
+     [react/view (when-not group-chat [photos/member-photo public-key])]
      [react/view (st/chat-name-view (or (empty? accounts)
                                         show-actions?))
       (let [chat-name (if (string/blank? name)
