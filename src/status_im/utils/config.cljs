@@ -37,6 +37,7 @@
 (def default-network (get-config :DEFAULT_NETWORK))
 (def testfairy-token (get-config :TESTFAIRY_TOKEN))
 (def instabug-token (get-config :INSTABUG_TOKEN))
+(def force-sr-ratio-tracking (get-config :FORCE_SENT_RECEIVED_TRACKING))
 
 (def pow-target (js/parseFloat (get-config :POW_TARGET "0.002")))
 (def pow-time (js/parseInt (get-config :POW_TIME "1")))
