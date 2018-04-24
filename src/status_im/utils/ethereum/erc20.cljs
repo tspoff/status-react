@@ -15,7 +15,8 @@
 
   => 29166666
   "
-  (:require [status-im.utils.ethereum.core :as ethereum])
+  (:require [status-im.utils.ethereum.core :as ethereum]
+            [status-im.native-module.core :as status])
   (:refer-clojure :exclude [name symbol]))
 
 (defn name [web3 contract cb]
@@ -58,3 +59,62 @@
   (ethereum/call web3
                  (ethereum/call-params contract "allowance(address,address)" (ethereum/normalized-address owner-address) (ethereum/normalized-address spender-address))
                  #(cb %1 (ethereum/hex->bignumber %2))))
+
+(defn- parse-json
+  ;; NOTE(dmitryn) Expects JSON response like:
+  ;; {"error": "msg"} or {"result": true}
+  [s]
+  (try
+    (let [res (-> s
+                  js/JSON.parse
+                  (js->clj :keywordize-keys true))]
+      ;; NOTE(dmitryn): AddPeer() may return {"error": ""}
+      ;; assuming empty error is a success response
+      ;; by transforming {"error": ""} to {:result true}
+      (if (and (:error res)
+               (= (:error res) ""))
+        {:result true}
+        res))
+    (catch :default e
+      {:error (.-message e)})))
+
+(defn- add-padding [address]
+  (if address
+    (str "0x000000000000000000000000" (subs address 2))))
+
+(defn- remove-padding [topic]
+  (if topic
+    (str "0x" (subs topic 26))))
+
+(defn- parse-transaction-entry [entries]
+  (for [entry entries]
+    (-> entry
+        (assoc :from (-> entry :topics second remove-padding)
+               :to (-> entry :topics last remove-padding)
+               :value (-> entry :data ethereum/hex->bignumber))
+        (dissoc :topics :data))))
+
+(defn- response-handler [error-fn success-fn]
+  (fn handle-response
+    ([response]
+     (let [{:keys [error result]} (parse-json response)]
+       (handle-response error result)))
+    ([error result]
+     (if error
+       (error-fn error)
+       (success-fn (parse-transaction-entry result))))))
+
+(defn get-token-transactions
+  ;; TODO(goranjovic): here we cannot use web3 since events don't work with infura
+  [contract from to cb]
+  (let [args {:jsonrpc "2.0"
+              :id      2
+              :method  "eth_getLogs"
+              :params  [{:address   [contract]
+                         :fromBlock "0x0"
+                         :topics    ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+                                     (add-padding from)
+                                     (add-padding to)]}]}
+        payload (.stringify js/JSON (clj->js args))]
+    (status/call-web3-private payload
+                              (response-handler js/alert cb))))
