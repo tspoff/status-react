@@ -2,7 +2,6 @@
     status-im.transport.message.v1.group-chat
   (:require [clojure.set :as set]
             [re-frame.core :as re-frame]
-            [status-im.utils.handlers :as handlers]
             [status-im.utils.handlers-macro :as handlers-macro]
             [status-im.transport.message.core :as message]
             [status-im.i18n :as i18n]
@@ -133,48 +132,3 @@
                            (group/participants-removed chat-id #{signature})
                            (send-new-group-key nil chat-id))))))
 
-(handlers/register-handler-fx
-  ::unsubscribe-from-chat
-  [re-frame/trim-v]
-  (fn [cofx [chat-id]]
-    (transport/unsubscribe-from-chat chat-id cofx)))
-
-(handlers/register-handler-fx
-  ::send-new-sym-key
-  [re-frame/trim-v]
-  ;; this is the event that is called when we want to send a message that required first
-  ;; some async operations
-  (fn [{:keys [db] :as cofx} [{:keys [chat-id message sym-key sym-key-id]}]]
-    (let [{:keys [web3]} db]
-      (handlers-macro/merge-fx cofx
-                         {:db             (assoc-in db [:transport/chats chat-id :sym-key-id] sym-key-id)
-                          :shh/add-filter {:web3       web3
-                                           :sym-key-id sym-key-id
-                                           :topic      (transport.utils/get-topic chat-id)
-                                           :chat-id    chat-id}
-                          :data-store.transport/save {:chat-id chat-id
-                                                      :chat (-> (get-in db [:transport/chats chat-id])
-                                                                (assoc :sym-key-id sym-key-id)
-                                                                ;;TODO (yenda) remove once go implements persistence
-                                                                (assoc :sym-key sym-key))}}
-                         (message/send (NewGroupKey. chat-id sym-key message) chat-id)))))
-
-(handlers/register-handler-fx
-  ::add-new-sym-key
-  [re-frame/trim-v (re-frame/inject-cofx :random-id)]
-  (fn [{:keys [db] :as cofx} [{:keys [sym-key-id sym-key chat-id signature message]}]]
-    (let [{:keys [web3 current-public-key]} db
-          fx {:db (assoc-in db [:transport/chats chat-id :sym-key-id] sym-key-id)
-              :shh/add-filter {:web3       web3
-                               :sym-key-id sym-key-id
-                               :topic      (transport.utils/get-topic chat-id)
-                               :chat-id    chat-id}
-              :data-store.transport/save {:chat-id chat-id
-                                          :chat (-> (get-in db [:transport/chats chat-id])
-                                                    (assoc :sym-key-id sym-key-id)
-                                                    ;;TODO (yenda) remove once go implements persistence
-                                                    (assoc :sym-key sym-key))}}]
-      ;; if new sym-key is wrapping some message, call receive on it as well, if not just update the transport layer
-      (if message
-        (handlers-macro/merge-fx cofx fx (message/receive message chat-id signature))
-        fx))))
