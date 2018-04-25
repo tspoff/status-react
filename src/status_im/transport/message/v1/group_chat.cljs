@@ -8,7 +8,6 @@
             [status-im.ui.screens.group.core :as group]
             [status-im.chat.models :as models.chat]
             [status-im.chat.models.message :as models.message]
-            [status-im.transport.core :as transport]
             [status-im.transport.message.v1.protocol :as protocol]
             [status-im.transport.utils :as transport.utils]))
 
@@ -99,7 +98,7 @@
                                  (models.chat/upsert-chat {:chat-id         chat-id
                                                            :removed-from-at now
                                                            :is-active       false})
-                                 (transport/unsubscribe-from-chat chat-id))
+                                 (transport.utils/unsubscribe-from-chat chat-id))
               (handlers-macro/merge-fx cofx
                                  (models.message/receive
                                   (models.message/system-message chat-id random-id now
