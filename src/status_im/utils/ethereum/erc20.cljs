@@ -87,18 +87,28 @@
   (if topic
     (str "0x" (subs topic 26))))
 
-(defn- parse-transaction-entry [network direction entries]
-  (for [entry entries]
-    {:block     (-> entry :blockNumber ethereum/hex->int)
-     :hash      (:transactionHash entry)
-     :symbol    (->> entry :address (tokens/address->token network) :symbol)
-     :from      (-> entry :topics second remove-padding)
-     :to        (-> entry :topics last remove-padding)
-     :value     (-> entry :data ethereum/hex->bignumber)
-     :to-wallet "Main Wallet"
-     :type      direction}))
+(defn- parse-transaction-entry [chain direction entries]
+  (into {}
+        (for [entry entries]
+          [(:transactionHash entry)
+           {:block     (-> entry :blockNumber)
+            :hash      (:transactionHash entry)
+            :symbol    (->> entry :address (tokens/address->token chain) :symbol)
+            :from      (-> entry :topics second remove-padding)
+            :to        (-> entry :topics last remove-padding)
+            :value     (-> entry :data ethereum/hex->bignumber)
+            :type      direction
 
-(defn- response-handler [network direction error-fn success-fn]
+            :gas-price 0
+            :nonce     0
+            :data      "0x"
+
+            :gas-limit 0
+            :timestamp 0
+
+            :gas-used  0}])))
+
+(defn- response-handler [chain direction error-fn success-fn]
   (fn handle-response
     ([response]
      (let [{:keys [error result]} (parse-json response)]
@@ -106,14 +116,15 @@
     ([error result]
      (if error
        (error-fn error)
-       (success-fn (parse-transaction-entry network direction result))))))
+       (success-fn (parse-transaction-entry chain direction result))))))
 
 (defn get-token-transactions
   ;; TODO(goranjovic): here we cannot use web3 since events don't work with infura
   [network contracts direction address cb]
-  (let [[from to] (if (= :inbound direction)
-                    [nil address]
-                    [address nil])
+  (let [chain (ethereum/network->chain-keyword network)
+        [from to] (if (= :inbound direction)
+                    [nil (ethereum/normalized-address address)]
+                    [(ethereum/normalized-address address) nil])
         args {:jsonrpc "2.0"
               :id      2
               :method  "eth_getLogs"
@@ -124,7 +135,7 @@
                                      (add-padding to)]}]}
         payload (.stringify js/JSON (clj->js args))]
     (status/call-web3-private payload
-                              (response-handler network direction js/alert cb))))
+                              (response-handler chain direction js/alert cb))))
 
 (defn get-block-info [web3 number cb]
   (.getBlock (.-eth web3) number (fn [error result]
