@@ -16,7 +16,8 @@
   => 29166666
   "
   (:require [status-im.utils.ethereum.core :as ethereum]
-            [status-im.native-module.core :as status])
+            [status-im.native-module.core :as status]
+            [status-im.utils.ethereum.tokens :as tokens])
   (:refer-clojure :exclude [name symbol]))
 
 (defn name [web3 contract cb]
@@ -86,15 +87,18 @@
   (if topic
     (str "0x" (subs topic 26))))
 
-(defn- parse-transaction-entry [entries]
+(defn- parse-transaction-entry [network direction entries]
   (for [entry entries]
-    (-> entry
-        (assoc :from (-> entry :topics second remove-padding)
-               :to (-> entry :topics last remove-padding)
-               :value (-> entry :data ethereum/hex->bignumber))
-        (dissoc :topics :data))))
+    {:block     (-> entry :blockNumber ethereum/hex->int)
+     :hash      (:transactionHash entry)
+     :symbol    (->> entry :address (tokens/address->token network) :symbol)
+     :from      (-> entry :topics second remove-padding)
+     :to        (-> entry :topics last remove-padding)
+     :value     (-> entry :data ethereum/hex->bignumber)
+     :to-wallet "Main Wallet"
+     :type      direction}))
 
-(defn- response-handler [error-fn success-fn]
+(defn- response-handler [network direction error-fn success-fn]
   (fn handle-response
     ([response]
      (let [{:keys [error result]} (parse-json response)]
@@ -102,19 +106,40 @@
     ([error result]
      (if error
        (error-fn error)
-       (success-fn (parse-transaction-entry result))))))
+       (success-fn (parse-transaction-entry network direction result))))))
 
 (defn get-token-transactions
   ;; TODO(goranjovic): here we cannot use web3 since events don't work with infura
-  [contract from to cb]
-  (let [args {:jsonrpc "2.0"
+  [network contracts direction address cb]
+  (let [[from to] (if (= :inbound direction)
+                    [nil address]
+                    [address nil])
+        args {:jsonrpc "2.0"
               :id      2
               :method  "eth_getLogs"
-              :params  [{:address   [contract]
+              :params  [{:address   contracts
                          :fromBlock "0x0"
                          :topics    ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
                                      (add-padding from)
                                      (add-padding to)]}]}
         payload (.stringify js/JSON (clj->js args))]
     (status/call-web3-private payload
-                              (response-handler js/alert cb))))
+                              (response-handler network direction js/alert cb))))
+
+(defn get-block-info [web3 number cb]
+  (.getBlock (.-eth web3) number (fn [error result]
+                                    (if (seq error)
+                                      (js/alert (.stringify js/JSON error))
+                                      (cb (js->clj result :keywordize-keys true))))))
+
+(defn get-transaction [web3 number cb]
+  (.getTransaction (.-eth web3) number (fn [error result]
+                                   (if (seq error)
+                                     (js/alert (.stringify js/JSON error))
+                                     (cb (js->clj result :keywordize-keys true))))))
+
+(defn get-transaction-receipt [web3 number cb]
+  (.getTransactionReceipt (.-eth web3) number (fn [error result]
+                                                (if (seq error)
+                                                  (js/alert (.stringify js/JSON error))
+                                                  (cb (js->clj result :keywordize-keys true))))))
