@@ -74,14 +74,20 @@ class LogoutButton(BaseButton):
         super(LogoutButton, self).__init__(driver)
         self.locator = self.Locator.accessibility_id('log-out-button')
 
-    def click(self):
-        self.scroll_to_element()
-        for _ in range(2):
-            self.find_element().click()
-            time.sleep(2)
-            info('Tap on %s' % self.name)
-        from views.sign_in_view import SignInView
-        return SignInView(self.driver)
+
+class LogoutDialog(BaseView):
+    def __init__(self, driver):
+        super(LogoutDialog, self).__init__(driver)
+        self.logout_button = LogoutDialog.LogoutButton(driver)
+
+    class LogoutButton(BaseButton):
+        def __init__(self, driver):
+            super(LogoutDialog.LogoutButton, self).__init__(driver)
+            self.locator = self.Locator.text_selector('LOG OUT')
+
+        def navigate(self):
+            from views.sign_in_view import SignInView
+            return SignInView(self.driver)
 
 
 class UserNameText(BaseText):
@@ -148,6 +154,7 @@ class ProfileView(BaseView):
         self.network_settings_button = NetworkSettingsButton(self.driver)
         self.connect_button = NetworkSettingsButton.ConnectButton(self.driver)
         self.logout_button = LogoutButton(self.driver)
+        self.logout_dialog = LogoutDialog(self.driver)
 
         # new design
 
@@ -170,3 +177,8 @@ class ProfileView(BaseView):
     def get_address(self):
         profile_view = self.profile_button.click()
         return profile_view.profile_address_text.text
+
+    def logout(self):
+        self.logout_button.click()
+        return self.logout_dialog.logout_button.click()
+
