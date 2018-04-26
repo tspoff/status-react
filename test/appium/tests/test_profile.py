@@ -1,13 +1,14 @@
 import pytest
 import time
 from tests.base_test_case import SingleDeviceTestCase
-from tests import basic_user
+from tests import basic_user, marks
 from views.sign_in_view import SignInView
 
 
-@pytest.mark.all
+@marks.all
 class TestProfileView(SingleDeviceTestCase):
 
+    @marks.testrail_case_id(3395)
     def test_qr_code_and_its_value(self):
         sign_in_view = SignInView(self.driver)
         sign_in_view.create_user()
@@ -18,7 +19,7 @@ class TestProfileView(SingleDeviceTestCase):
         key_value_from_qr = profile_view.get_text_from_qr()
         assert key_value == key_value_from_qr
 
-    @pytest.mark.pr
+    @marks.pr
     def test_contact_profile_view(self):
         sign_in_view = SignInView(self.driver)
         sign_in_view.create_user()
@@ -30,7 +31,8 @@ class TestProfileView(SingleDeviceTestCase):
         for text in basic_user['username'], 'In contacts', 'Send transaction', 'Send message', 'Contact code':
             chat_view.find_full_text(text)
 
-    @pytest.mark.pr
+    @marks.pr
+    @marks.testrail_case_id(3397)
     def test_network_switch(self):
         sign_in_view = SignInView(self.driver)
         sign_in_view.create_user()
