@@ -3,7 +3,7 @@ from hashlib import md5
 import hmac
 import os
 
-from tests import SingleTestData
+from support.test_data import SingleTestData
 
 
 class GithubHtmlReport:
@@ -51,23 +51,29 @@ class GithubHtmlReport:
 
     def save_test(self, test):
         file_path = self.get_test_report_file_path(test.name)
-        json.dump(test.__dict__, open(file_path, 'w'))
+        test_dict = {'name': test.name, 'testruns': list()}
+        for testrun in test.testruns:
+            test_dict['testruns'].append(testrun.__dict__)
+        json.dump(test_dict, open(file_path, 'w'))
 
     def get_all_tests(self):
         tests = list()
         file_list = [f for f in os.listdir(self.TEST_REPORT_DIR)]
         for file_name in file_list:
             file_path = os.path.join(self.TEST_REPORT_DIR, file_name)
-            test_dict = json.load(open(file_path))
-            tests.append(SingleTestData(name=test_dict['name'], steps=test_dict['steps'],
-                                        jobs=test_dict['jobs'], error=test_dict['error']))
+            test_data = json.load(open(file_path))
+            testruns = list()
+            for testrun_data in test_data['testruns']:
+                testruns.append(SingleTestData.TestRunData(
+                    steps=testrun_data['steps'], jobs=testrun_data['jobs'], error=testrun_data['error']))
+            tests.append(SingleTestData(name=test_data['name'], testruns=testruns))
         return tests
 
     def get_failed_tests(self):
         tests = self.get_all_tests()
         failed = list()
         for test in tests:
-            if test.error is not None:
+            if not self.is_test_successful(test):
                 failed.append(test)
         return failed
 
@@ -75,7 +81,7 @@ class GithubHtmlReport:
         tests = self.get_all_tests()
         passed = list()
         for test in tests:
-            if test.error is None:
+            if self.is_test_successful(test):
                 passed.append(test)
         return passed
 
@@ -104,9 +110,10 @@ class GithubHtmlReport:
         html = "<tr><td><b>%d. %s</b></td></tr>" % (index+1, test.name)
         html += "<tr><td>"
         test_steps_html = list()
-        for step in test.steps:
+        last_testrun = test.testruns[-1]
+        for step in last_testrun.steps:
             test_steps_html.append("<div>%s</div>" % step)
-        if test.error:
+        if last_testrun.error:
             if test_steps_html:
                 html += "<p>"
                 html += "<blockquote>"
@@ -114,10 +121,10 @@ class GithubHtmlReport:
                 html += "%s" % ''.join(test_steps_html[-2:])
                 html += "</blockquote>"
                 html += "</p>"
-            html += "<code>%s</code>" % test.error
+            html += "<code>%s</code>" % last_testrun.error
             html += "<br/><br/>"
-        if test.jobs:
-            html += self.build_device_sessions_html(test.jobs)
+        if last_testrun.jobs:
+            html += self.build_device_sessions_html(last_testrun.jobs)
         html += "</td></tr>"
         return html
 
@@ -133,3 +140,8 @@ class GithubHtmlReport:
             html += "<li><a href=\"%s\">Device %d</a></li>" % (self.get_sauce_job_url(job_id), i+1)
         html += "</ul></p>"
         return html
+
+    @staticmethod
+    def is_test_successful(test):
+        # Test passed if last testrun has passed
+        return test.testruns[-1].error is None

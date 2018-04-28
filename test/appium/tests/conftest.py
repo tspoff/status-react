@@ -1,4 +1,7 @@
-from tests import test_suite_data, SingleTestData
+from _pytest.runner import runtestprotocol
+
+from support.test_rerun import should_rerun_test
+from tests import test_suite_data, debug
 import requests
 import re
 import pytest
@@ -51,6 +54,14 @@ def pytest_addoption(parser):
                      action='store',
                      default=None,
                      help='Pull Request number')
+    parser.addoption('--rerun_count',
+                     action='store',
+                     default=1,
+                     help='How many times tests should be re-run if failed')
+
+
+def get_rerun_count():
+    return int(pytest.config.getoption('rerun_count'))
 
 
 def is_master(config):
@@ -86,7 +97,13 @@ def pytest_configure(config):
                               data=file,
                               headers={'Content-Type': 'application/octet-stream'})
             else:
-                sauce.storage.upload_file(config.getoption('apk'))
+                upload_apk_to_sauce(config)
+
+
+def upload_apk_to_sauce(config):
+    apk = config.getoption('apk')
+    debug("Uploading %s to Sauce Labs" % apk)
+    sauce.storage.upload_file(apk)
 
 
 def pytest_unconfigure(config):
@@ -101,13 +118,13 @@ def pytest_unconfigure(config):
 def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
-    is_sauce_env = pytest.config.getoption('env') == 'sauce'
-    current_test = test_suite_data.current_test
     if report.when == 'call':
+        is_sauce_env = pytest.config.getoption('env') == 'sauce'
+        current_test = test_suite_data.current_test
         if report.failed:
-            current_test.error = report.longreprtext
+            current_test.testruns[-1].error = report.longreprtext
         if is_sauce_env:
-            update_sauce_jobs(current_test.name, current_test.jobs, report.passed)
+            update_sauce_jobs(current_test.name, current_test.testruns[-1].jobs, report.passed)
         github_report.save_test(current_test)
 
 
@@ -117,4 +134,16 @@ def update_sauce_jobs(test_name, job_ids, passed):
 
 
 def pytest_runtest_setup(item):
-    test_suite_data.add_test(SingleTestData(item.name))
+    test_suite_data.set_current_test(item.name)
+    test_suite_data.current_test.create_new_testrun()
+
+
+def pytest_runtest_protocol(item, nextitem):
+    for i in range(get_rerun_count()):
+        reports = runtestprotocol(item, nextitem=nextitem)
+        for report in reports:
+            if report.failed and should_rerun_test(report.longreprtext):
+                break  # rerun
+        else:
+            return True  # no need to rerun
+
