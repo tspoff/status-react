@@ -197,13 +197,25 @@
 
    ;; sent/receive ratio
    {:label      "SRratio"
-    :trigger    [:transport/set-message-envelope-hash]
+    :trigger    [:signals/envelope-status]
     :properties {:target :user-message-sent}
-    :filter-fn  (fn [_ [_ _ _ message-type]]
-                  (= :user-message message-type))
-    :data-fn    (fn [_ [_ _ message-id message-type]]
-                  {:message-id   message-id
-                   :message-type message-type})}
+    :filter-fn  (fn [db [_ envelope-hash status]]
+                  (when (= :sent status)
+                    (let [{:keys [chat-id message-id]}
+                          (get-in db [:transport/message-envelopes envelope-hash])
+
+                          {:keys [message-type]}
+                          (get-in db [:chats chat-id :messages message-id])]
+                      (= :user-message message-type))))
+    :data-fn    (fn [db [_ envelope-hash status]]
+                  (when (= :sent status)
+                    (let [{:keys [chat-id message-id]}
+                          (get-in db [:transport/message-envelopes envelope-hash])
+
+                          {:keys [message-type]}
+                          (get-in db [:chats chat-id :messages message-id])]
+                      {:message-id   message-id
+                       :message-type message-type})))}
 
    {:label      "SRratio"
     :trigger    [:chat-received-message/add]
